@@ -1,0 +1,216 @@
+@baseUrl = http://localhost:8000/api
+@userId = 1
+
+### Browsing movies (by page with a custom items per page)
+
+GET {{baseUrl}}/movies?page1&itemsPerPage=12
+
+### Searching for "Batman" movies
+
+GET {{baseUrl}}/movies?page1&itemsPerPage=12&title=Batman
+
+### Get a specific movie
+
+GET {{baseUrl}}/movies/20706
+
+### Get a specific movie's ratings
+
+GET {{baseUrl}}/movies/20706/ratings
+
+### Get a specific movie's reviews
+
+GET {{baseUrl}}/movies/20706/reviews
+
+### Get a specific movie's custom list entries
+
+GET {{baseUrl}}/movies/20706/custom_list_entries?page1&itemsPerPage=1
+
+### Adventure movies
+
+GET {{baseUrl}}/genres/12/movies
+
+### Movies with Chris Pratt
+
+GET {{baseUrl}}/casts/26853/movies
+
+### Movies directed by Christopher Nolan
+
+GET {{baseUrl}}/directors/19322/movies
+
+### List users and search by username
+
+GET {{baseUrl}}/users?username=test
+
+### Authenticate
+
+POST {{baseUrl}}/auth
+Content-Type: application/json
+
+{
+  "email": "test1@test.com",
+  "password": "password"
+}
+
+> {% client.global.set("token",response.body.token); %}
+
+### List user's ratings
+
+GET {{baseUrl}}/users/{{userId}}/ratings
+
+### List user's reviews
+
+GET {{baseUrl}}/users/{{userId}}/reviews
+
+### List user's collections
+
+GET {{baseUrl}}/users/{{userId}}/collections
+
+### List user's followers
+
+GET {{baseUrl}}/users/{{userId}}/followers
+
+### List user's followings
+
+GET {{baseUrl}}/users/{{userId}}/follows
+
+### Get the authenticated user's feed
+
+GET {{baseUrl}}/feed?limit=2&cursor=2025-11-21T14:40:46+00:00
+Authorization: Bearer {{token}}
+
+### Register a new user
+
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "test@test.com",
+  "username": "TEST",
+  "plainPassword": "password"
+}
+
+> {% client.global.set("createdUserId",response.body.id); %}
+
+### Update a user
+
+PATCH {{baseUrl}}/users/{{createdUserId}}
+Content-Type: application/merge-patch+json
+Authorization: Bearer {{token}}
+
+{
+  "username": "TEST!!!!!"
+}
+
+### Get a specific user
+
+GET {{baseUrl}}/users/{{createdUserId}}
+
+### Delete a user
+
+DELETE {{baseUrl}}/users/{{createdUserId}}
+Authorization: Bearer {{token}}
+
+### Rate a movie
+
+POST {{baseUrl}}/ratings
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "movie": "/api/movies/20706",
+  "user": "/api/users/11",
+  "note": 8
+}
+
+### Set a rating
+
+PATCH {{baseUrl}}/ratings/3
+Content-Type: application/merge-patch+json
+Authorization: Bearer {{token}}
+
+{
+  "note": 6
+}
+
+### Delete a rating
+
+DELETE {{baseUrl}}/ratings/3
+Authorization: Bearer {{token}}
+
+### Review a movie
+
+POST {{baseUrl}}/reviews
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "movie": "/api/movies/20706",
+  "user": "/api/users/11",
+  "content": "Here is my awesome review: it was okay."
+}
+
+### Set a review
+
+PATCH {{baseUrl}}/reviews/3
+Content-Type: application/merge-patch+json
+Authorization: Bearer {{token}}
+
+{
+  "content": "Here is my awesome review: it was okay, and I didn't sleep!."
+}
+
+### Delete a review
+
+DELETE {{baseUrl}}/reviews/3
+Authorization: Bearer {{token}}
+
+### Create a collection
+
+POST {{baseUrl}}/custom_lists
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "user": "/api/users/11",
+  "title": "Seen in 2025",
+  "entries": [
+    {
+      "position": 1,
+      "movie": "/api/movies/20706"
+    }
+  ]
+}
+
+### Set a collection
+
+PATCH {{baseUrl}}/custom_lists/2
+Content-Type: application/merge-patch+json
+Authorization: Bearer {{token}}
+
+{
+  "entries": [
+    {
+      "position": 1,
+      "movie": "/api/movies/17969"
+    },
+    {
+      "position": 2,
+      "movie": "/api/movies/20789"
+    }
+  ]
+}
+
+### Delete a collection
+
+DELETE {{baseUrl}}/custom_lists/2
+Authorization: Bearer {{token}}
+
+### Follow a user
+
+POST {{baseUrl}}/users/11/follow/1
+Authorization: Bearer {{token}}
+
+### Unfollow a user
+
+DELETE {{baseUrl}}/users/11/follow/1
+Authorization: Bearer {{token}}

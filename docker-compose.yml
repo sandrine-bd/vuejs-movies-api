@@ -1,0 +1,17 @@
+services:
+    php:
+        build:
+            context: .
+            dockerfile: ./Dockerfile
+        volumes:
+            - .:/app
+            - /app/vendor
+            - /app/public/bundles
+            - ./db:/app/db
+        ports:
+            - "8000:8000"
+            #- "80:80"
+            #- "443:443"
+        environment:
+            - APP_ENV=dev
+            - APP_DEBUG=1
