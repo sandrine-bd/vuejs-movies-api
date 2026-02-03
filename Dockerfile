@@ -28,30 +28,15 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 
 WORKDIR /app
 
-# Copy composer files first
-COPY composer.json composer.lock symfony.lock ./
+# Copy ALL files (simpler approach)
+COPY . .
 
-# Configure Composer plugins
-RUN composer config --no-plugins allow-plugins.symfony/flex true && \
-    composer config --no-plugins allow-plugins.symfony/runtime true && \
-    composer config --no-plugins allow-plugins.php-http/discovery true
-
-# Install dependencies (INCLUDING symfony/runtime)
+# Install dependencies WITH scripts (Symfony needs them)
 RUN composer install \
     --no-dev \
     --optimize-autoloader \
     --no-interaction \
-    --no-scripts \
     --prefer-dist
-
-# Copy application code
-COPY . .
-
-# Run post-install scripts and generate autoloader
-RUN composer dump-autoload --optimize --classmap-authoritative
-
-# Run Symfony scripts
-RUN composer run-script auto-scripts || true
 
 # Create directories and set permissions
 RUN mkdir -p var/cache var/log db && \
