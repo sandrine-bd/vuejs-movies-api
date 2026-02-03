@@ -35,17 +35,14 @@ COPY . .
 # Allow all plugins
 RUN composer config allow-plugins true
 
-# Install ALL dependencies (remove --no-dev)
+# Install dependencies (with all deps now that runtime is fixed)
 RUN composer install --optimize-autoloader --no-interaction
 
-# Verify runtime exists
-RUN ls -la vendor/autoload_runtime.php || echo "WARNING: autoload_runtime.php missing!"
-
-# Create directories
+# Create directories and set permissions
 RUN mkdir -p var/cache var/log db && chmod -R 777 var db
 
-# Clear cache
-RUN php bin/console cache:clear --env=prod || true
+# Clear cache (ignore DB errors)
+RUN php bin/console cache:clear --env=prod --no-debug 2>&1 || true
 
 EXPOSE 10000
 

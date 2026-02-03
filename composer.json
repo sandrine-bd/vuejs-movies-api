@@ -1,4 +1,6 @@
 {
+    "name": "sandrine-bd/vuejs-movies-api",
+    "description": "API Symfony pour la gestion de films et critiques",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",
@@ -27,7 +29,7 @@
         "symfony/framework-bundle": "7.3.*",
         "symfony/property-access": "7.3.*",
         "symfony/property-info": "7.3.*",
-        "symfony/runtime": "^7.3",
+        "symfony/runtime": "7.3.*",
         "symfony/security-bundle": "7.3.*",
         "symfony/serializer": "7.3.*",
         "symfony/twig-bundle": "7.3.*",
