@@ -32,31 +32,20 @@ WORKDIR /app
 # Copy everything
 COPY . .
 
-# Show files for debug
-RUN echo "=== Files in /app ===" && ls -la
-
-# Check composer.json validity
-RUN echo "=== Validating composer.json ===" && composer validate --no-check-publish || true
-
 # Allow all plugins
 RUN composer config allow-plugins true
 
-# Try install with verbose output
-RUN echo "=== Installing dependencies ===" && \
-    composer install --no-interaction -vvv 2>&1 | tail -100 || \
-    (echo "=== FIRST ATTEMPT FAILED, trying without --no-dev ===" && \
-     composer install --ignore-platform-reqs --no-interaction) || \
-    (echo "=== SECOND ATTEMPT FAILED, trying basic install ===" && \
-     composer update --no-interaction)
+# Install ALL dependencies (remove --no-dev)
+RUN composer install --optimize-autoloader --no-interaction
 
-# Verify vendor exists
-RUN echo "=== Checking vendor directory ===" && ls -la vendor/ || echo "VENDOR MISSING!"
+# Verify runtime exists
+RUN ls -la vendor/autoload_runtime.php || echo "WARNING: autoload_runtime.php missing!"
 
 # Create directories
 RUN mkdir -p var/cache var/log db && chmod -R 777 var db
 
-# Try cache commands
-RUN php bin/console cache:clear --env=prod || echo "Cache clear failed"
+# Clear cache
+RUN php bin/console cache:clear --env=prod || true
 
 EXPOSE 10000
 
