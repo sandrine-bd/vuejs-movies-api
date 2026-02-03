@@ -1,67 +1,87 @@
 FROM php:8.2-cli
 
 # Install system dependencies
+# Install essentials
 RUN apt-get update && apt-get install -y \
     git \
+    curl \
     unzip \
     libzip-dev \
-    libicu-dev \
     sqlite3 \
     libsqlite3-dev \
-    libxml2-dev \
+    libicu-dev \
     libonig-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
+# Install PHP extensions required by Symfony
 RUN docker-php-ext-install \
     zip \
     pdo \
     pdo_sqlite \
     intl \
     mbstring \
-    xml \
     opcache
+    sqlite3 \
+    libsqlite3-dev
+
+# Configure opcache for production
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.interned_strings_buffer=8" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.max_accelerated_files=10000" >> /usr/local/etc/php/conf.d/opcache.ini
+# Install PHP extensions
+RUN docker-php-ext-install zip pdo pdo_sqlite intl
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-ENV COMPOSER_ALLOW_SUPERUSER=1
 
+# Configure Composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_NO_INTERACTION=1
+
+# Set working directory
 WORKDIR /app
 
-# Copy composer files first
+# Copy composer files first (for better layer caching)
 COPY composer.json composer.lock symfony.lock ./
 
-# Configure Composer plugins
-RUN composer config --no-plugins allow-plugins.symfony/flex true && \
-    composer config --no-plugins allow-plugins.symfony/runtime true && \
-    composer config --no-plugins allow-plugins.php-http/discovery true
-
-# Install dependencies (INCLUDING symfony/runtime)
+# Install dependencies with verbose output for debugging
 RUN composer install \
     --no-dev \
     --optimize-autoloader \
     --no-interaction \
-    --no-scripts \
-    --prefer-dist
+    --no-progress \
+    --prefer-dist \
+    --verbose
 
-# Copy application code
+# Copy the rest of the application
+# Copy everything
 COPY . .
 
-# Run post-install scripts and generate autoloader
-RUN composer dump-autoload --optimize --classmap-authoritative
+# Create and set permissions for runtime directories
+RUN mkdir -p var/cache var/log db public/uploads && \
+    chmod -R 777 var db public/uploads
+# Show what we have
+RUN ls -la && echo "=== PHP Version ===" && php -v
 
-# Run Symfony scripts
-RUN composer run-script auto-scripts || true
+# Generate optimized autoloader
+RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
+# Try to install - show full output
+RUN composer install --no-dev --no-interaction -vvv 2>&1 | tee /tmp/composer.log || \
+    (echo "=== COMPOSER FAILED - Full log: ===" && cat /tmp/composer.log && exit 1)
 
-# Create directories and set permissions
-RUN mkdir -p var/cache var/log db && \
-    chmod -R 777 var db
+# Clear and warmup Symfony cache
+RUN APP_ENV=prod php bin/console cache:clear --no-warmup || true
+RUN APP_ENV=prod php bin/console cache:warmup || true
+# Create directories
+RUN mkdir -p var/cache var/log && chmod -R 777 var
 
-# Clear and warmup cache
-RUN php bin/console cache:clear --env=prod --no-debug || true
-RUN php bin/console cache:warmup --env=prod --no-debug || true
-
+# Expose port
 EXPOSE 10000
 
-# Start PHP server
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+    CMD php -r "echo 'OK';" || exit 1
+
+# Start the built-in PHP server
 CMD php -S 0.0.0.0:${PORT:-10000} -t public

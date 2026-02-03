@@ -26,7 +26,8 @@
                 "doctrine/collections": "^2.1",
                 "doctrine/common": "^3.2.2",
                 "doctrine/persistence": "^3.2 || ^4.0",
-                "php": ">=8.2"
+                "php": ">=8.2",
+                "symfony/runtime": "^6.0|^7.0"
             },
             "conflict": {
                 "doctrine/persistence": "<1.3"
