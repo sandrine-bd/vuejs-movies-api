@@ -3,44 +3,72 @@ FROM php:8.2-cli
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
+    curl \
     unzip \
     libzip-dev \
     sqlite3 \
     libsqlite3-dev \
-    && docker-php-ext-install zip pdo pdo_sqlite
+    libicu-dev \
+    libonig-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions required by Symfony
+RUN docker-php-ext-install \
+    zip \
+    pdo \
+    pdo_sqlite \
+    intl \
+    mbstring \
+    opcache
+
+# Configure opcache for production
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.interned_strings_buffer=8" >> /usr/local/etc/php/conf.d/opcache.ini && \
+    echo "opcache.max_accelerated_files=10000" >> /usr/local/etc/php/conf.d/opcache.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Configure Composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_NO_INTERACTION=1
+
 # Set working directory
 WORKDIR /app
 
-# Copy composer files first (for better caching)
+# Copy composer files first (for better layer caching)
 COPY composer.json composer.lock symfony.lock ./
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-scripts --no-autoloader
+# Install dependencies with verbose output for debugging
+RUN composer install \
+    --no-dev \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-progress \
+    --prefer-dist \
+    --verbose
 
-# Copy application files
+# Copy the rest of the application
 COPY . .
 
+# Create and set permissions for runtime directories
+RUN mkdir -p var/cache var/log db public/uploads && \
+    chmod -R 777 var db public/uploads
+
 # Generate optimized autoloader
-RUN composer dump-autoload --optimize --classmap-authoritative
+RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
-# Create necessary directories and set permissions
-RUN mkdir -p var/cache var/log db && \
-    chmod -R 777 var db
+# Clear and warmup Symfony cache
+RUN APP_ENV=prod php bin/console cache:clear --no-warmup || true
+RUN APP_ENV=prod php bin/console cache:warmup || true
 
-# Clear and warmup cache
-RUN php bin/console cache:clear --env=prod --no-debug && \
-    php bin/console cache:warmup --env=prod --no-debug
-
-# Expose port (Render uses PORT env variable)
+# Expose port
 EXPOSE 10000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
     CMD php -r "echo 'OK';" || exit 1
 
-# Start PHP server
+# Start the built-in PHP server
 CMD php -S 0.0.0.0:${PORT:-10000} -t public
