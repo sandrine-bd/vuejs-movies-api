@@ -1,28 +1,63 @@
 FROM php:8.2-cli
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git unzip libzip-dev libicu-dev sqlite3 libsqlite3-dev \
+    git \
+    unzip \
+    libzip-dev \
+    libicu-dev \
+    sqlite3 \
+    libsqlite3-dev \
+    libxml2-dev \
+    libonig-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install zip pdo pdo_sqlite intl opcache
+# Install PHP extensions
+RUN docker-php-ext-install \
+    zip \
+    pdo \
+    pdo_sqlite \
+    intl \
+    mbstring \
+    xml \
+    opcache
 
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_MEMORY_LIMIT=-1
 
 WORKDIR /app
 
+# Copy everything
 COPY . .
 
-# Allow ALL plugins
+# Show files for debug
+RUN echo "=== Files in /app ===" && ls -la
+
+# Check composer.json validity
+RUN echo "=== Validating composer.json ===" && composer validate --no-check-publish || true
+
+# Allow all plugins
 RUN composer config allow-plugins true
 
-# Install with maximum compatibility
-RUN composer install --ignore-platform-reqs --no-interaction || \
-    composer install --no-dev --no-interaction
+# Try install with verbose output
+RUN echo "=== Installing dependencies ===" && \
+    composer install --no-interaction -vvv 2>&1 | tail -100 || \
+    (echo "=== FIRST ATTEMPT FAILED, trying without --no-dev ===" && \
+     composer install --ignore-platform-reqs --no-interaction) || \
+    (echo "=== SECOND ATTEMPT FAILED, trying basic install ===" && \
+     composer update --no-interaction)
 
-RUN mkdir -p var && chmod -R 777 var
+# Verify vendor exists
+RUN echo "=== Checking vendor directory ===" && ls -la vendor/ || echo "VENDOR MISSING!"
+
+# Create directories
+RUN mkdir -p var/cache var/log db && chmod -R 777 var db
+
+# Try cache commands
+RUN php bin/console cache:clear --env=prod || echo "Cache clear failed"
 
 EXPOSE 10000
+
 CMD php -S 0.0.0.0:${PORT:-10000} -t public
-```
