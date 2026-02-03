@@ -1,26 +1,46 @@
-FROM dunglas/frankenphp:latest
+FROM php:8.2-cli
 
-WORKDIR /app
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    unzip \
+    libzip-dev \
+    sqlite3 \
+    libsqlite3-dev \
+    && docker-php-ext-install zip pdo pdo_sqlite
 
-RUN install-php-extensions \
-	pdo_mysql \
-	gd \
-	intl \
-	zip \
-	opcache
-
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Set working directory
+WORKDIR /app
+
+# Copy composer files first (for better caching)
+COPY composer.json composer.lock symfony.lock ./
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-autoloader
+
+# Copy application files
 COPY . .
-RUN chmod +x bin/console
 
-RUN composer install
+# Generate optimized autoloader
+RUN composer dump-autoload --optimize --classmap-authoritative
 
-# FrankenPHP avec Symfony
-ENV FRANKENPHP_CONFIG="worker /app/public/index.php"
-ENV APP_RUNTIME="Runtime\\FrankenPhpSymfony\\Runtime"
-#ENV SERVER_NAME=localhost
-ENV SERVER_NAME=":8000"
+# Create necessary directories and set permissions
+RUN mkdir -p var/cache var/log db && \
+    chmod -R 777 var db
 
-#EXPOSE 80 443
-EXPOSE 8000
+# Clear and warmup cache
+RUN php bin/console cache:clear --env=prod --no-debug && \
+    php bin/console cache:warmup --env=prod --no-debug
+
+# Expose port (Render uses PORT env variable)
+EXPOSE 10000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+    CMD php -r "echo 'OK';" || exit 1
+
+# Start PHP server
+CMD php -S 0.0.0.0:${PORT:-10000} -t public
