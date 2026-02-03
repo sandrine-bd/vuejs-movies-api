@@ -9,11 +9,10 @@ services:
       - key: APP_ENV
         value: prod
       - key: APP_DEBUG
-        value: 0
+        value: "0"
       - key: APP_SECRET
         generateValue: true
       - key: DATABASE_URL
         value: sqlite:///%kernel.project_dir%/db/movies.db
       - key: CORS_ALLOW_ORIGIN
-        value: ^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$|^https://.*\.vercel\.app$|^https://.*\.netlify\.app$
-    healthCheckPath: /api
+        value: "*"
